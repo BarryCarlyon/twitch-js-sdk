@@ -48,6 +48,29 @@ $('.twitch-connect').click(function() {
 })
 ```
 
+You can pass the state parameter to Twitch.login to pass additional information thru the authentication process. Upon return from Twitch you can call something along the lines of the following. Where the next page name has been placed into the state varible. The utility function clearState was called to avoid the state parameter persisting across page loads. It's an optional call.
+
+Note: if you pass a full path to state (which should always be local to your site), please note the use of `decodeURIComponent` for the redirect!
+
+```javascript
+$('.twitch-connect').click(function() {
+  Twitch.login({
+    scope: ['user_read', 'channel_read'],
+    state: 'anotherpage'
+  });
+})
+
+Twitch.init({clientId: 'YOUR_CLIENT_ID_HERE'}, function(error, status) {
+  if (status.authenticated) {
+    if (Twitch.getState()) {
+      document.location = document.location.pathname + decodeURIComponent(Twitch.getState());
+      Twitch.clearState();
+      return;
+    }
+  }
+});
+```
+
 You probably only want to show the button when the user is not logged in, so add this to the callback on Twitch.init:
 
 ```javascript
@@ -79,12 +102,29 @@ For an example of integrating the Twitch SDK with login functionality, please ch
 
 ### Twitch.init
 
-Initialize the Twitch API with your Client ID. This method must be called prior to other actions. If the user is already authenticated, you can perform authenticated actions after initialization. Otherwise, you must call Twitch.login to have the user authorize your app. 
+Initialize the Twitch API with your Client ID. This method must be called prior to other actions. If the user is already authenticated, you can perform authenticated actions after initialization. Otherwise, you must call Twitch.login to have the user authorize your app.
 
 #### Usage
 
 ```javascript
 Twitch.init({clientId: 'YOUR_CLIENT_ID_HERE'}, function(error, status) {
+  if (error) {
+    // error encountered while loading
+    console.log(error);
+  }
+  // the sdk is now loaded
+  if (status.authenticated) {
+    // user is currently logged in
+  }
+});
+```
+
+### Twitch.init with a Token
+
+Sometimes you may wish to pass to Javascript an existing Token, whether than be from some server side Session handler, or other cookie storage you can do with the 'token' option
+
+```javascript
+Twitch.init({clientId: 'YOUR_CLIENT_ID_HERE', token: 'THE_EXISING_TOKEN_HERE'}, function(error, status) {
   if (error) {
     // error encountered while loading
     console.log(error);
@@ -226,7 +266,7 @@ Twitch.events.removeListener('auth.login', handleLogin);
 
 ### auth.login
 
-This event is emitted when we initialize a session for a user, either because the current page is a login `redirect_uri` or we have restored the session from persistent storage. 
+This event is emitted when we initialize a session for a user, either because the current page is a login `redirect_uri` or we have restored the session from persistent storage.
 
 ### auth.logout
 

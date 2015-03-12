@@ -212,9 +212,12 @@
     if (!options.clientId) {
       throw new Error('client id not specified');
     }
+    if (!options.token) {
+      options.token = false;
+    }
 
     Twitch._config.clientId = options.clientId;
-    Twitch._initSession();
+    Twitch._initSession(options.token);
 
     if (typeof callback === 'function') {
       Twitch.getStatus(callback);
@@ -246,7 +249,7 @@
     session = {
       token: hashMatch(/access_token=(\w+)/),
       scope: hashMatch(/scope=([\w+]+)/) ? hashMatch(/scope=([\w+]+)/).split('+') : null,
-      state: hashMatch(/state=(\w+)/),
+      state: hashMatch(/state=(.+)/),
       error: hashMatch(/error=(\w+)/),
       errorDescription: hashMatch(/error_description=(\w+)/)
     };
@@ -279,6 +282,9 @@
   // Useful for sending OAuth tokens to your backend.
   var getToken = function() {
     return Twitch._config.session && Twitch._config.session.token;
+  };
+  var getState = function() {
+    return Twitch._config.session && Twitch._config.session.state;
   };
 
   // Get the current authentication status. Will try to use the stored session
@@ -339,11 +345,14 @@
       redirect_uri: options.redirect_uri || window.location.href.replace(/#.*$/, ''),
       scope: options.scope.join(' ')
     };
+    if (options.state) {
+      params['state'] = options.state;
+    }
 
     if (!params.client_id) {
       throw new Error('You must call init() before login()');
     }
-    
+
     var url = Twitch.baseUrl + 'oauth2/authorize?' + $.param(params);
 
     if (options.popup) {
@@ -377,9 +386,20 @@
     }
   };
 
+  // Utility function to remove the state from the session
+  var clearState = function() {
+    Twitch._config.session.state = '';
+
+    // Persist to session storage on browsers that support it
+    // and cookies otherwise.
+    if (window.JSON) {
+      Twitch._storage.setItem(SESSION_KEY, JSON.stringify(Twitch._config.session));
+    }
+  }
+
   // Retrieve sessions from persistent storage and
   // persist new ones.
-  var initSession = function() {
+  var initSession = function(token) {
     var storedSession;
 
     Twitch._config.session = {};
@@ -408,6 +428,11 @@
       if (window.JSON) {
         Twitch._storage.setItem(SESSION_KEY, JSON.stringify(Twitch._config.session));
       }
+    } else if (token) {
+      Twitch._config.session.token = token;
+      if (window.JSON) {
+        Twitch._storage.setItem(SESSION_KEY, JSON.stringify(Twitch._config.session));
+      }
     }
 
     getStatus(function(err, status) {
@@ -421,11 +446,14 @@
     _initSession: initSession,
     _parseFragment: parseFragment,
     getToken: getToken,
+    getState: getState,
     getStatus: getStatus,
     login: login,
-    logout: logout
+    logout: logout,
+    clearState: clearState
   });
-})();// ## Events
+})();
+// ## Events
 /**
  * EventEmitter v3.1.4
  * https://github.com/Wolfy87/EventEmitter
